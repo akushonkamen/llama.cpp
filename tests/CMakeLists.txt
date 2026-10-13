@@ -167,8 +167,6 @@ if (LLAMA_LLGUIDANCE)
 endif ()
 
 # llama_context state tests: KV and recurrent state save, load, copy, rollback
-# the cases use internal headers, so they are built here; they are grouped per file and the
-# interface they implement is in llama-context/test-case.h
 set(LLAMA_CONTEXT_TEST_SRC
     test-llama-context.cpp
     llama-context/cases-kv.cpp
@@ -179,6 +177,20 @@ set(LLAMA_CONTEXT_TEST_SRC
     llama-context/test-util.cpp
 )
 llama_build(${LLAMA_CONTEXT_TEST_SRC})
+
+# Test context state handling across all architectures, using the generated dummy models
+llama_test(
+    test-llama-context
+    LABEL main
+    ARGS --models "${MODEL_DIR}"
+)
+# abort on graph reallocations that the initial reserve should have covered
+set_tests_properties(test-llama-context PROPERTIES
+    FIXTURES_REQUIRED generate-models
+    ENVIRONMENT "GGML_SCHED_DEBUG_REALLOC=1"
+)
+
+llama_build(test-fusion.cpp)
 
 if (NOT WIN32 OR NOT BUILD_SHARED_LIBS)
     # these tests are disabled on Windows because they use internal functions not exported with LLAMA_API (when building with shared libraries)
@@ -238,20 +250,6 @@ if (NOT WIN32 OR NOT BUILD_SHARED_LIBS)
     set_tests_properties(test-generate-models PROPERTIES
         FIXTURES_SETUP generate-models
     )
-
-    # Test context state handling across all architectures, using the generated dummy models
-    llama_test(
-        test-llama-context
-        LABEL main
-        ARGS --models "${MODEL_DIR}"
-    )
-    # abort on graph reallocations that the initial reserve should have covered
-    set_tests_properties(test-llama-context PROPERTIES
-        FIXTURES_REQUIRED generate-models
-        ENVIRONMENT "GGML_SCHED_DEBUG_REALLOC=1"
-    )
-
-    llama_build(test-fusion.cpp)
 endif()
 
 llama_build_and_test(test-chat-peg-parser.cpp peg-parser/simple-tokenize.cpp)
